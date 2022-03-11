@@ -6,6 +6,7 @@ import {
   editarUsuario,
   deleteUsuario,
   newTransferencia,
+  getTransferencias,
 } from './db.js';
 app.use(express.static('static'));
 
@@ -85,14 +86,25 @@ app.post('/transferencia', async (req, res) => {
       let { emisor, receptor, monto } = data;
       monto = +monto;
       checkValues('', monto);
+
       const transferencia = await newTransferencia(emisor, receptor, monto);
-      console.log(transferencia);
-      res.status(200).send(transferencia);
+      res.status(200).send({ transferencia });
     } catch (error) {
       console.log(error.message);
-      res.status(400).send({ error });
+      res.status(400).send(error.message);
     }
   });
+});
+
+app.get('/transferencias', async (req, res) => {
+  try {
+    const transferencias = await getTransferencias();
+
+    res.status(200).send(transferencias);
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error });
+  }
 });
 
 app.listen(3000, () => console.log('Servidor funcionando en puerto 3000'));

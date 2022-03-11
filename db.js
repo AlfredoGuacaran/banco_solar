@@ -61,12 +61,20 @@ export async function editarUsuario(id, nombre, balance) {
 export async function deleteUsuario(id) {
   try {
     const client = await pool.connect();
-    const res = await client.query({
+
+    const deleteTransfers = await client.query({
+      text: 'DELETE from transferencias where receptor = $1 OR emisor = $1;',
+      values: [id],
+    });
+
+    const deleteUser = await client.query({
       text: 'DELETE from usuarios where id = $1;',
       values: [id],
     });
     client.release();
-    return res.rowCount ? `Usuario eliminado con exito` : `Usuario no existe`;
+    return deleteUser.rowCount
+      ? `Usuario eliminado con exito`
+      : `Usuario no existe`;
   } catch (error) {
     console.log(error.message);
     throw error;
@@ -81,22 +89,55 @@ export async function newTransferencia(emisor, receptor, monto) {
       values: [emisor, receptor],
     });
 
-    const [datosEmisor, datosReceptor] = datosUsuarios;
+    const [datosEmisor] = datosUsuarios.filter(
+      usuario => usuario.nombre == emisor
+    );
+    const [datosReceptor] = datosUsuarios.filter(
+      usuario => usuario.nombre == receptor
+    );
+
+    if (emisor === receptor)
+      throw new Error('El emisor y el receptor no pueden ser el mismo');
+
     if (monto > datosEmisor.balance)
       throw new Error('Emisor no tiene suficiente saldo');
 
     const newBalanceEmisor = await client.query({
-      text: 'update usuarios set balance = $2 where id=',
-      values: [datosEmisor.id, datosReceptor.id, monto],
+      text: 'update usuarios set balance = $2 where id=$1',
+      values: [datosEmisor.id, datosEmisor.balance - monto],
+    });
+
+    const newBalanceReceptor = await client.query({
+      text: 'update usuarios set balance = $2 where id=$1',
+      values: [datosReceptor.id, datosReceptor.balance + monto],
     });
 
     const transferencia = await client.query({
-      text: 'insert into transferencias (fecha,emisor,receptor, monto) values (now(),$1,$2,$3)',
-      values: [datosEmisor.id, datosReceptor.id, monto],
+      text: 'insert into transferencias (emisor,receptor, monto,fecha) values ($1,$2,$3,$4)',
+      values: [datosEmisor.id, datosReceptor.id, monto, new Date(Date.now())],
     });
-
     client.release();
+
+    return transferencia.rowCount
+      ? `Trasferenciar realizada con exito`
+      : `Hubo un error`;
   } catch (error) {
+    console.log(error);
+    throw error.message;
+  }
+}
+
+export async function getTransferencias() {
+  try {
+    const client = await pool.connect();
+    const res = await client.query({
+      text: 'select transferencias.fecha, usuarios.nombre, u.nombre , transferencias.monto FROM transferencias JOIN usuarios ON transferencias.emisor=usuarios.id JOIN usuarios as u ON transferencias.receptor=u.id;',
+      rowMode: 'array',
+    });
+    client.release();
+    return res.rows;
+  } catch (error) {
+    console.log(error);
     throw error;
   }
 }

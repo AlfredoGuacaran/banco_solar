@@ -228,6 +228,7 @@
         }),
       });
       const data = await response.json();
+      console.log(data)
       location.reload();
       console.log(data);
     } catch (e) {
@@ -269,6 +270,7 @@
       method: "DELETE",
     });
     getUsuarios();
+    location.reload();
   };
 
   const getTransferencias = async () => {
@@ -288,7 +290,7 @@
   };
 
   getUsuarios();
-  // getTransferencias();
+  getTransferencias();
 
   const formatDate = (date) => {
     const dateFormat = moment(date).format("L");
